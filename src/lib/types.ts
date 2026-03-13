@@ -20,6 +20,8 @@ export interface LayoutConfig {
 	pattern: LayingPattern;
 	angle: number; // degrees
 	staggerOffset: number; // fraction 0-1 (e.g. 0.333 for 1/3)
+	offsetX: number; // mm — shift entire plank grid horizontally
+	offsetY: number; // mm — shift entire plank grid vertically
 }
 
 export interface PlankInstance {

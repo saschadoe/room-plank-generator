@@ -190,7 +190,7 @@ export function calculateLayout(roomVertices: Point[], config: LayoutConfig): La
 		};
 	}
 
-	const { plank, pattern, angle, staggerOffset } = config;
+	const { plank, pattern, angle, staggerOffset, offsetX, offsetY } = config;
 	const plankArea = plank.length * plank.width;
 
 	// Rotate room into plank-aligned space so we can lay planks axis-aligned
@@ -200,10 +200,10 @@ export function calculateLayout(roomVertices: Point[], config: LayoutConfig): La
 
 	// Expand bounding box for herringbone (planks extend beyond simple grid)
 	const margin = Math.max(plank.length, plank.width) * 2;
-	const startX = bb.minX - margin;
-	const startY = bb.minY - margin;
-	const endX = bb.maxX + margin;
-	const endY = bb.maxY + margin;
+	const startX = bb.minX - margin + offsetX;
+	const startY = bb.minY - margin + offsetY;
+	const endX = bb.maxX + margin + offsetX;
+	const endY = bb.maxY + margin + offsetY;
 
 	const planks: PlankInstance[] = [];
 

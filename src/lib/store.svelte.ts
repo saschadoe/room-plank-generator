@@ -6,8 +6,12 @@ class FloorPlannerState {
 	vertices = $state<Point[]>(createRectangle(4000, 3000));
 
 	// Editor mode
-	editorMode = $state<'draw' | 'table'>('table');
+	editorMode = $state<'draw' | 'table' | 'move'>('table');
 	isDrawing = $state(false);
+
+	// Plank grid offset (for shifting all planks)
+	plankOffsetX = $state(0);
+	plankOffsetY = $state(0);
 
 	// Plank dimensions
 	plank = $state<PlankDimensions>({
@@ -34,7 +38,9 @@ class FloorPlannerState {
 			plank: this.plank,
 			pattern: this.pattern,
 			angle: this.angle,
-			staggerOffset: this.staggerOffset
+			staggerOffset: this.staggerOffset,
+			offsetX: this.plankOffsetX,
+			offsetY: this.plankOffsetY
 		};
 	}
 

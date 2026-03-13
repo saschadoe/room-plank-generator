@@ -18,6 +18,11 @@
 	let panStart = $state<Point>({ x: 0, y: 0 });
 	let panOffset = $state<Point>({ x: 0, y: 0 });
 
+	// Plank move mode state
+	let isMovingPlanks = $state(false);
+	let plankMoveStart = $state<Point>({ x: 0, y: 0 });
+	let plankOffsetStart = $state<Point>({ x: 0, y: 0 });
+
 	// Touch state
 	let isTouchDevice = $state(false);
 	let lastPinchDist = $state<number | null>(null);
@@ -188,6 +193,14 @@
 			return;
 		}
 
+		if (store.editorMode === 'move' && e.button === 0) {
+			isMovingPlanks = true;
+			plankMoveStart = svgPoint(e);
+			plankOffsetStart = { x: store.plankOffsetX, y: store.plankOffsetY };
+			e.preventDefault();
+			return;
+		}
+
 		if (store.editorMode === 'draw' && e.button === 0) {
 			const pt = e.shiftKey ? snapToGrid(svgPoint(e)) : svgPoint(e);
 			if (store.isDrawing) {
@@ -214,6 +227,13 @@
 			return;
 		}
 
+		if (isMovingPlanks) {
+			const pt = svgPoint(e);
+			store.plankOffsetX = plankOffsetStart.x + (pt.x - plankMoveStart.x);
+			store.plankOffsetY = plankOffsetStart.y + (pt.y - plankMoveStart.y);
+			return;
+		}
+
 		if (draggingVertex !== null) {
 			let pt = e.shiftKey ? snapToGrid(svgPoint(e)) : svgPoint(e);
 			pt = snapVertexTo90(draggingVertex, pt);
@@ -235,6 +255,7 @@
 		isPanning = false;
 		draggingVertex = null;
 		draggingEdge = null;
+		isMovingPlanks = false;
 	}
 
 	function handleWheel(e: WheelEvent) {
@@ -321,6 +342,15 @@
 
 			if (store.isDrawing) return;
 
+			// Move planks mode
+			if (store.editorMode === 'move') {
+				e.preventDefault();
+				isMovingPlanks = true;
+				plankMoveStart = pt;
+				plankOffsetStart = { x: store.plankOffsetX, y: store.plankOffsetY };
+				return;
+			}
+
 			// Try to hit a vertex first
 			const vi = findNearestVertex(pt, hitRadius);
 			if (vi !== null) {
@@ -368,6 +398,14 @@
 		if (e.touches.length === 1) {
 			const touch = e.touches[0];
 
+			if (isMovingPlanks) {
+				e.preventDefault();
+				const pt = clientToSvg(touch.clientX, touch.clientY);
+				store.plankOffsetX = plankOffsetStart.x + (pt.x - plankMoveStart.x);
+				store.plankOffsetY = plankOffsetStart.y + (pt.y - plankMoveStart.y);
+				return;
+			}
+
 			if (draggingVertex !== null) {
 				e.preventDefault();
 				let pt = clientToSvg(touch.clientX, touch.clientY);
@@ -396,6 +434,7 @@
 			isPanning = false;
 			draggingVertex = null;
 			draggingEdge = null;
+			isMovingPlanks = false;
 			lastPinchDist = null;
 		} else if (e.touches.length === 1 && lastPinchDist !== null) {
 			// Went from 2 fingers to 1 — start single-finger pan from current pos
@@ -490,6 +529,14 @@
 		>
 			Table
 		</button>
+		<button
+			class="px-2 sm:px-3 py-1.5 sm:py-1.5 rounded text-xs sm:text-sm font-medium transition-colors {store.editorMode === 'move'
+				? 'bg-[var(--color-warning)] text-black'
+				: 'bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'}"
+			onclick={() => { store.editorMode = store.editorMode === 'move' ? 'table' : 'move'; store.isDrawing = false; }}
+		>
+			Move Planks
+		</button>
 		<div class="w-px bg-[var(--color-border)]"></div>
 		<button
 			class="px-2 sm:px-3 py-1.5 sm:py-1.5 rounded text-xs sm:text-sm font-medium bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)] transition-colors"
@@ -498,6 +545,15 @@
 		>
 			Fit
 		</button>
+		{#if store.editorMode === 'move'}
+			<button
+				class="px-2 sm:px-3 py-1.5 sm:py-1.5 rounded text-xs sm:text-sm font-medium bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)] transition-colors"
+				onclick={() => { store.plankOffsetX = 0; store.plankOffsetY = 0; }}
+				title="Reset plank offset"
+			>
+				Reset
+			</button>
+		{/if}
 	</div>
 
 	<!-- Mobile zoom controls -->
@@ -513,8 +569,12 @@
 	</div>
 
 	{#if store.isDrawing}
-		<div class="absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 sm:px-4 py-2 rounded bg-[var(--color-accent)] text-white text-xs sm:text-sm font-medium shadow-lg text-center">
+		<div class="absolute top-12 left-1/2 -translate-x-1/2 z-10 px-3 sm:px-4 py-2 rounded bg-[var(--color-accent)] text-white text-xs sm:text-sm font-medium shadow-lg text-center">
 			Tap to place vertices. Tap first point to close.
+		</div>
+	{:else if store.editorMode === 'move'}
+		<div class="absolute top-12 left-1/2 -translate-x-1/2 z-10 px-3 sm:px-4 py-2 rounded bg-[var(--color-warning)] text-black text-xs sm:text-sm font-medium shadow-lg text-center">
+			Drag to shift all planks. Find the best fit.
 		</div>
 	{/if}
 
@@ -522,7 +582,7 @@
 	<svg
 		bind:this={svgEl}
 		viewBox="{viewBox.x} {viewBox.y} {viewBox.w} {viewBox.h}"
-		class="w-full h-full cursor-crosshair"
+		class="w-full h-full {store.editorMode === 'move' ? 'cursor-move' : 'cursor-crosshair'}"
 		onmousedown={handleMouseDown}
 		onmousemove={handleMouseMove}
 		onmouseup={handleMouseUp}
